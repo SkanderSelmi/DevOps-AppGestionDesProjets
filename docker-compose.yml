@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: mysql-db
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: devops_db
+      MYSQL_USER: devops
+      MYSQL_PASSWORD: devops123
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      - devops-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-proot"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  adminer:
+    image: adminer
+    container_name: adminer-ui
+    ports:
+      - "8082:8080"
+    depends_on:
+      - mysql
+    networks:
+      - devops-network
+
+  backend:
+    build: ./backend
+    container_name: backend-api
+    environment:
+      DB_HOST: mysql-db
+      DB_PORT: 3306
+      DB_NAME: devops_db
+      DB_USER: devops
+      DB_PASSWORD: devops123
+    ports:
+      - "9090:9090"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - devops-network
+
+  frontend:
+    build: ./frontend
+    container_name: frontend-ui
+    ports:
+      - "4200:80"
+    depends_on:
+      - backend
+    networks:
+      - devops-network
+
+networks:
+  devops-network:
+    driver: bridge
+
+volumes:
+  mysql-data:
