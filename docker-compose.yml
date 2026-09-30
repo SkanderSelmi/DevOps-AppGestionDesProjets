@@ -33,6 +33,7 @@ services:
 
   backend:
     build: ./backend
+    image: devops-backend:latest
     container_name: backend-api
     environment:
       DB_HOST: mysql-db
@@ -50,6 +51,7 @@ services:
 
   frontend:
     build: ./frontend
+    image: devops-frontend:latest
     container_name: frontend-ui
     ports:
       - "4200:80"
