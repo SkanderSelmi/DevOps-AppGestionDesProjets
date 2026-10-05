@@ -58,7 +58,7 @@ pipeline {
                 dir('backend') {
                     // 'SonarQube' = nom du serveur configuré dans Jenkins (Configurer le système)
                     withSonarQubeEnv('SonarQube') {
-                        sh 'mvn sonar:sonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_AUTH_TOKEN'
+                        sh 'mvn org.sonarsource.scanner.maven:sonar-maven-plugin:sonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_AUTH_TOKEN'
                     }
                 }
             }
