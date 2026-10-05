@@ -15,21 +15,19 @@ pipeline {
         stage('Build Backend') {
             steps {
                 dir('backend') {
-                    sh 'mvn clean package -DskipTests'
+                    // Compilation seule : le jar sera produit à l'étape Package, après le Quality Gate
+                    sh 'mvn clean compile'
                 }
             }
         }
 
         stage('Start Test Database') {
             steps {
-                // Démarre uniquement MySQL, nécessaire pour BackendApplicationTests
-                // (le vrai contexte Spring a besoin d'une vraie connexion DB).
                 sh 'docker compose up -d mysql'
-                // Attend que MySQL soit prêt à accepter des connexions avant de lancer les tests.
                 sh '''
                     until docker exec mysql-db mysqladmin ping -h localhost -uroot -proot --silent; do
                         echo "En attente de MySQL..."
-                        sleep 3
+                        sleep 2
                     done
                 '''
             }
@@ -45,13 +43,40 @@ pipeline {
             }
             steps {
                 dir('backend') {
-                    // Tous les tests, y compris BackendApplicationTests, contre la vraie base MySQL.
                     sh 'mvn test'
                 }
             }
             post {
                 always {
                     junit 'backend/target/surefire-reports/*.xml'
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                dir('backend') {
+                    // 'SonarQube' = nom du serveur configuré dans Jenkins (Configurer le système)
+                    withSonarQubeEnv('SonarQube') {
+                        sh 'mvn sonar:sonar -Dsonar.host.url=$SONAR_HOST_URL -Dsonar.token=$SONAR_AUTH_TOKEN'
+                    }
+                }
+            }
+        }
+
+        stage('Quality Gate') {
+            steps {
+                // Nécessite le webhook SonarQube -> Jenkins (voir étape dédiée)
+                timeout(time: 2, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
+        stage('Package') {
+            steps {
+                dir('backend') {
+                    sh 'mvn package -DskipTests'
                 }
             }
         }
@@ -100,10 +125,10 @@ pipeline {
             sh 'docker logout || true'
         }
         success {
-            echo 'Pipeline terminé avec succès — images poussées sur Docker Hub et application déployée.'
+            echo 'Pipeline terminé avec succès : qualité validée, images poussées, application déployée.'
         }
         failure {
-            echo 'Le pipeline a échoué — vérifier la Console Output.'
+            echo 'Le pipeline a échoué, vérifier la Console Output.'
         }
     }
 }
