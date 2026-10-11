@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spring-config
+  namespace: devops
+data:
+  SPRING_DATASOURCE_URL: jdbc:mysql://mysql-service:3306/springdb
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: spring-secret
+  namespace: devops
+type: Opaque
+data:
+  # echo -n spring | base64
+  SPRING_DATASOURCE_USERNAME: c3ByaW5n
+  # echo -n spring123 | base64
+  SPRING_DATASOURCE_PASSWORD: c3ByaW5nMTIz
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: spring
+  namespace: devops
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: spring
+  template:
+    metadata:
+      labels:
+        app: spring
+    spec:
+      containers:
+        - name: spring
+          image: skanderselmi/backend:1.0
+          ports:
+            - containerPort: 9090
+          envFrom:
+            - configMapRef:
+                name: spring-config
+            - secretRef:
+                name: spring-secret
+          readinessProbe:
+            tcpSocket:
+              port: 9090
+            initialDelaySeconds: 20
+            periodSeconds: 10
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: spring-service
+  namespace: devops
+spec:
+  type: NodePort
+  selector:
+    app: spring
+  ports:
+    - port: 9090
+      targetPort: 9090
+      nodePort: 30081
